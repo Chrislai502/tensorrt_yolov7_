@@ -30,8 +30,10 @@
 /* ------------------------------ ROS2 Includes ----------------------------- */
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
-// #include "vision_msgs/msg/detection2_d_array.hpp"
-#include "vision_msgs/msg/bounding_box2_d.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
+#include "vision_msgs/msg/detection2_d.hpp"
+// #include "vision_msgs/msg/bounding_box2_d.hpp"
+#include "std_msgs/Header.h"
 #include "tier4_perception_msgs/msg/detected_objects_with_feature.hpp"
 
 /* ----------------------- TensorRT & YOLOv7 Includes ----------------------- */
@@ -43,6 +45,10 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "cv_bridge/cv_bridge.h"
+
+
+typedef vision_msgs::Detection2D detection_type;
+typedef std_msgs::Header msg_Header;
 
 namespace perception
 {

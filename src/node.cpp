@@ -108,17 +108,30 @@ void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::Share
   // nmsresults likely posess a list of bounding boxes
   nmsresults_ = yolov7_->PostProcess();
 
-  // Create the Object Bboxes msg to publish
-  // vison_msgs::msg::Detection2_d_array
-  auto pub_msg = vision_msgs::msg::BoundingBox2D();
+  // // Create the Object Bboxes msg to publish
+  // // vison_msgs::msg::Detection2_d_array
+  // auto pub_msg = vision_msgs::msg::BoundingBox2D();
+
+  /* -------------------------------------------------------------------------- */
+  /*                    Iterating through the Bounding Boxes                    */
+  /* -------------------------------------------------------------------------- */
+  auto pub_msg = vision_msgs::msg::Detection2DArray();
+
+  // Set the header
+  std_msgs::msg::Header header;
+  header.stamp = rclcpp::Clock().now();
+  header.frame_id = "frame_id";
+  msg.header = header;
 
   for(size_t i =0; i < nmsresults_.size();i++){
       // TODO: Publish here!
-      std::cout << "Hello, World!" << std::endl;
+
       Yolov7::DrawBoxesonGraph(bgr_imgs_->at(i),nmsresults_[i]);
 
-      // Only Publish the first box
-      if (i == 0 and nmsresults_[i].size()>0) {
+      /* -------------------- Adding the boxes into the arrays -------------------- */
+      if (nmsresults_[i].size()>0) {
+
+          vision_msgs::msg::Detection2D detection;
           auto& ibox = nmsresults_[i][i];
           float left = ibox[0];
           float top = ibox[1];
@@ -127,26 +140,22 @@ void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::Share
           int class_label = ibox[4];
           float confidence = ibox[5];
 
-          pub_msg.center.x = int((right - left)/2 + left);
-          pub_msg.center.y = int((bottom - top)/2 + top);
-          pub_msg.size_x = int(right - left);
-          pub_msg.size_y = int(bottom - top);
+          detection.bbox.center.x = int((right - left)/2 + left);
+          detection.bbox.center.y = int((bottom - top)/2 + top);
+          detection.bbox.size_x = int(right - left);
+          detection.bbox.size_y = int(bottom - top);
+
+          //Append the detection to the array
+          pub_msg.push_back(detection);
       }
-      // Testing Print out the results
-      for (int h = 0; h < nmsresults_.size(); h++) {
-        for (int j = 0; j < nmsresults_[h].size(); j++) {
-          for (int k = 0; k < nmsresults_[h][j].size(); k++) {
-            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ", Value = " << nmsresults_[h][j][k] <<std::endl;
-          }
-        }
-      }
-      std::cout << "Next" <<std::endl;
       
-      // Publish the image and Bounding Boxes
+      // Publish the image
       cv_ptr_->image = bgr_imgs_->at(i);
       detection_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
-      if (nmsresults_[i].size()>0){objects_pub_->publish(pub_msg);}
   }
+
+  // Publish the Bounding Boxes
+  objects_pub_->publish(pub_msg);
 
   auto stop = now();
   auto diff = stop - step_time;
