@@ -67,11 +67,26 @@ private:
   cv_bridge::CvImagePtr cv_ptr_;
   int debug_;
 
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_image_sub_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr
-    detection_image_publisher_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_flc_image_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_frc_image_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_fl_image_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_fr_image_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_rl_image_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr input_rr_image_sub_;
+
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_flc_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_frc_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_fl_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_fr_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_rl_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detection_rr_image_publisher_;
   // rclcpp::Publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>::SharedPtr objects_pub_;
-  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_flc_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_frc_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_fl_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_fr_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_rl_pub_;
+  rclcpp::Publisher<vision_msgs::msg::BoundingBox2D>::SharedPtr objects_rr_pub_;
 
   OnSetParametersCallbackHandle::SharedPtr params_callback_handle_;
 

@@ -37,18 +37,68 @@ TensorRTYolov7Ros2Node::TensorRTYolov7Ros2Node(const rclcpp::NodeOptions & optio
   auto sensor_msgs_qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 1), qos_profile);
 
   // Creating Subscribers
-  input_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+  input_flc_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
       "vimba_front_left_center/image", sensor_msgs_qos,
+      std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
+  input_frc_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "vimba_front_right_center/image", sensor_msgs_qos,
+      std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
+  input_fl_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "vimba_front_left/image", sensor_msgs_qos,
+      std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
+  input_fr_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "vimba_front_rear/image", sensor_msgs_qos,
+      std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
+  input_rl_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "vimba_rear_left/image", sensor_msgs_qos,
+      std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
+  input_rr_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "vimba_rear_right/image", sensor_msgs_qos,
       std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
   
   // Creating Publishers
-  detection_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+  detection_flc_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
         "vimba_front_left_center/out/image",
         sensor_msgs_qos
   );
+    detection_frc_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "vimba_front_right_center/out/image",
+        sensor_msgs_qos
+  );
+    detection_fl_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "vimba_front_left/out/image",
+        sensor_msgs_qos
+  );
+    detection_fr_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "vimba_front_right/out/image",
+        sensor_msgs_qos
+  );
+    detection_rl_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "vimba_rear_left/out/image",
+        sensor_msgs_qos
+  );
+    detection_rr_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "vimba_rear_right/out/image",
+        sensor_msgs_qos
+  );
   
-  objects_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+  objects_flc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
         "vimba_front_left_center/out/objects",
+        sensor_msgs_qos);
+      objects_frc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+        "vimba_front_right_center/out/objects",
+        sensor_msgs_qos);
+          objects_fl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+        "vimba_front_left/out/objects",
+        sensor_msgs_qos);
+          objects_fr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+        "vimba_front_right/out/objects",
+        sensor_msgs_qos);
+          objects_rl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+        "vimba_rear_left/out/objects",
+        sensor_msgs_qos);
+          objects_rr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+        "vimba_rear_right/out/objects",
         sensor_msgs_qos);
   // objects_pub_ = this->create_publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>(
   //       "vimba_front_left_center/out/objects",
@@ -86,6 +136,7 @@ void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::Share
 {
   // Get the Timestamp
   auto step_time = this->now();
+  auto frame = 
   try {
     //
     cv_ptr_ = cv_bridge::toCvCopy(msg, msg->encoding);
@@ -114,7 +165,6 @@ void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::Share
 
   for(size_t i =0; i < nmsresults_.size();i++){
       // TODO: Publish here!
-      std::cout << "Hello, World!" << std::endl;
       Yolov7::DrawBoxesonGraph(bgr_imgs_->at(i),nmsresults_[i]);
 
       // Only Publish the first box
@@ -132,19 +182,19 @@ void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::Share
           pub_msg.size_x = int(right - left);
           pub_msg.size_y = int(bottom - top);
       }
-      // Testing Print out the results
-      for (int h = 0; h < nmsresults_.size(); h++) {
-        for (int j = 0; j < nmsresults_[h].size(); j++) {
-          for (int k = 0; k < nmsresults_[h][j].size(); k++) {
-            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ", Value = " << nmsresults_[h][j][k] <<std::endl;
-          }
-        }
-      }
-      std::cout << "Next" <<std::endl;
+    //   // Testing Print out the results
+    //   for (int h = 0; h < nmsresults_.size(); h++) {
+    //     for (int j = 0; j < nmsresults_[h].size(); j++) {
+    //       for (int k = 0; k < nmsresults_[h][j].size(); k++) {
+    //         std::cout << "i = " << i << ", j = " << j << ", k = " << k << ", Value = " << nmsresults_[h][j][k] <<std::endl;
+    //       }
+    //     }
+    //   }
+    //   std::cout << "Next" <<std::endl;
       
-      // Publish the image and Bounding Boxes
-      cv_ptr_->image = bgr_imgs_->at(i);
-      detection_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+    //   // Publish the image and Bounding Boxes
+    //   cv_ptr_->image = bgr_imgs_->at(i);
+    //   detection_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
       if (nmsresults_[i].size()>0){objects_pub_->publish(pub_msg);}
   }
 
