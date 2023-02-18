@@ -23,6 +23,8 @@ namespace tensorrt_yolov7_ros2
 TensorRTYolov7Ros2Node::TensorRTYolov7Ros2Node(const rclcpp::NodeOptions & options)
 :  rclcpp::Node("tensorrt_yolov7_ros2_node", options)
 {
+  printf("Node Created");
+  fflush(stdout);
   // node->declare_parameter<std::string>("engine_path_");
   // node->declare_parameter<int>("debug");
   // node->declare_parameter<std::string>("frame_id");
@@ -47,7 +49,7 @@ TensorRTYolov7Ros2Node::TensorRTYolov7Ros2Node(const rclcpp::NodeOptions & optio
       "vimba_front_left/image", sensor_msgs_qos,
       std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
   input_fr_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-      "vimba_front_rear/image", sensor_msgs_qos,
+      "vimba_front_right/image", sensor_msgs_qos,
       std::bind(&TensorRTYolov7Ros2Node::image_callback, this, std::placeholders::_1));
   input_rl_image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
       "vimba_rear_left/image", sensor_msgs_qos,
@@ -82,32 +84,32 @@ TensorRTYolov7Ros2Node::TensorRTYolov7Ros2Node(const rclcpp::NodeOptions & optio
         sensor_msgs_qos
   );
   
-  objects_flc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    // objects_flc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_front_left_center/out/objects",
+    //     sensor_msgs_qos);
+    // objects_frc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_front_right_center/out/objects",
+    //     sensor_msgs_qos);
+    // objects_fl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_front_left/out/objects",
+    //     sensor_msgs_qos);
+    // objects_fr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_front_right/out/objects",
+    //     sensor_msgs_qos);
+    // objects_rl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_rear_left/out/objects",
+    //     sensor_msgs_qos);
+    // objects_rr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
+    //     "vimba_rear_right/out/objects",
+    //     sensor_msgs_qos);
+    objects_pub_ = this->create_publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>(
         "vimba_front_left_center/out/objects",
         sensor_msgs_qos);
-      objects_frc_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
-        "vimba_front_right_center/out/objects",
-        sensor_msgs_qos);
-          objects_fl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
-        "vimba_front_left/out/objects",
-        sensor_msgs_qos);
-          objects_fr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
-        "vimba_front_right/out/objects",
-        sensor_msgs_qos);
-          objects_rl_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
-        "vimba_rear_left/out/objects",
-        sensor_msgs_qos);
-          objects_rr_pub_ = this->create_publisher<vision_msgs::msg::BoundingBox2D>(
-        "vimba_rear_right/out/objects",
-        sensor_msgs_qos);
-  // objects_pub_ = this->create_publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>(
-  //       "vimba_front_left_center/out/objects",
-  //       sensor_msgs_qos
-  // );
 
   params_callback_handle_ = this->add_on_set_parameters_callback(
     std::bind(&TensorRTYolov7Ros2Node::param_callback, this, std::placeholders::_1));
-  
+  printf("Node Created");
+    fflush(stdout);
 }
 
 rcl_interfaces::msg::SetParametersResult TensorRTYolov7Ros2Node::param_callback(
@@ -132,70 +134,122 @@ rcl_interfaces::msg::SetParametersResult TensorRTYolov7Ros2Node::param_callback(
   return result;
 }
 
-void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::SharedPtr msg)
+
+/* -------------------------------------------------------------------------- */
+/*                           IMAGE CALLBACK FUNCTION                          */
+/* -------------------------------------------------------------------------- */
+void TensorRTYolov7Ros2Node::image_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
+  /* --------------------------- Getting the header --------------------------- */
+  std::string topic_name = msg->header.frame_id;
+  image_inference_publish(msg, topic_name);
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*                        IMAGE INFERENCE AND PUBLISHER                       */
+/* -------------------------------------------------------------------------- */
+void TensorRTYolov7Ros2Node::image_inference_publish(const sensor_msgs::msg::Image::SharedPtr msg, std::string topic_name)
 {
-  // Get the Timestamp
+  /* ---------------------------- Get the Timestamp --------------------------- */
   auto step_time = this->now();
-  auto frame = 
+
+  /* -------------------------------------------------------------------------- */
+  /* ------- This block of code tries to convert the image message to an ------ */
+  /* ---------- OpenCV image using the cv_bridge::toCvCopy function. ---------- */
+  /* -------------------------------------------------------------------------- */
   try {
-    //
     cv_ptr_ = cv_bridge::toCvCopy(msg, msg->encoding);
   } catch (cv_bridge::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
     return;
   }
 
-  // If the 
+
+  /* -------------------------------------------------------------------------- */
+  /* ------ If the vector is empty, the newly received image is added to ------ */
+  /* -------- the vector. If the vector already has an image, the first ------- */
+  /* ------- image in the vector is replaced with the new image.This is ------- */
+  /* ------- done to ensure that only the most recent image is processed ------ */
+  /* ------------------------------ by the model. ----------------------------- */
+  /* -------------------------------------------------------------------------- */
   if (bgr_imgs_->empty()) {
     bgr_imgs_->push_back(cv_ptr_->image);
   } else {
     bgr_imgs_->at(0) = cv_ptr_->image;
   }
 
+
+  /* ------------------------ Preprocess the image --------------------------- */
   yolov7_->preProcess(*bgr_imgs_);
 
+
+  /* ------------------------ Run the inference ------------------------------ */
   yolov7_->infer();
 
-  // nmsresults likely posess a list of bounding boxes
+  /* -------------------------------------------------------------------------- */
+  /* --- This line is used to perform non-maximum suppression on the output --- */
+  /* ---- of the YOLOv7 model. This is done to remove duplicate detections ---- */
+  /* ------- and only keep the most confident detection of each object. ------- */
+  /* -------------------------------------------------------------------------- */
   nmsresults_ = yolov7_->PostProcess();
+  std::cout << "The size of my vector is: " << nmsresults_.size() << std::endl;
+
 
   // Create the Object Bboxes msg to publish
   // vison_msgs::msg::Detection2_d_array
   auto pub_msg = vision_msgs::msg::BoundingBox2D();
 
   for(size_t i =0; i < nmsresults_.size();i++){
-      // TODO: Publish here!
-      Yolov7::DrawBoxesonGraph(bgr_imgs_->at(i),nmsresults_[i]);
+    // TODO: Publish here!
+    Yolov7::DrawBoxesonGraph(bgr_imgs_->at(i),nmsresults_[i]);
 
-      // Only Publish the first box
-      if (i == 0 and nmsresults_[i].size()>0) {
-          auto& ibox = nmsresults_[i][i];
-          float left = ibox[0];
-          float top = ibox[1];
-          float right = ibox[2];
-          float bottom = ibox[3];
-          int class_label = ibox[4];
-          float confidence = ibox[5];
+    // Only Publish the first box
+    if (i == 0 and nmsresults_[i].size()>0) {
+        auto& ibox = nmsresults_[i][i];
+        float left = ibox[0];
+        float top = ibox[1];
+        float right = ibox[2];
+        float bottom = ibox[3];
+        int class_label = ibox[4];
+        float confidence = ibox[5];
 
-          pub_msg.center.x = int((right - left)/2 + left);
-          pub_msg.center.y = int((bottom - top)/2 + top);
-          pub_msg.size_x = int(right - left);
-          pub_msg.size_y = int(bottom - top);
-      }
-    //   // Testing Print out the results
-    //   for (int h = 0; h < nmsresults_.size(); h++) {
-    //     for (int j = 0; j < nmsresults_[h].size(); j++) {
-    //       for (int k = 0; k < nmsresults_[h][j].size(); k++) {
-    //         std::cout << "i = " << i << ", j = " << j << ", k = " << k << ", Value = " << nmsresults_[h][j][k] <<std::endl;
-    //       }
-    //     }
-    //   }
-    //   std::cout << "Next" <<std::endl;
+        pub_msg.center.x = int((right - left)/2 + left);
+        pub_msg.center.y = int((bottom - top)/2 + top);
+        pub_msg.size_x = int(right - left);
+        pub_msg.size_y = int(bottom - top);
+    }
       
-    //   // Publish the image and Bounding Boxes
-    //   cv_ptr_->image = bgr_imgs_->at(i);
-    //   detection_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
-      if (nmsresults_[i].size()>0){objects_pub_->publish(pub_msg);}
+    // Publish the image and Bounding Boxes
+    cv_ptr_->image = bgr_imgs_->at(i);
+    
+    /* -------------------------------------------------------------------------- */
+    /*                            Publishing the images                           */
+    /* -------------------------------------------------------------------------- */
+    // std::cout << "Topic Name: " << topic_name << std::endl;
+    if (topic_name == "vimba_front_left"){
+      detection_fl_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_fl_pub_->publish(pub_msg);}
+    } else if (topic_name == "vimba_front_right"){
+      detection_fr_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_fr_pub_->publish(pub_msg);}
+    } else if (topic_name == "vimba_rear_left"){
+      detection_rl_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_rl_pub_->publish(pub_msg);}
+    } else if (topic_name == "vimba_rear_right"){
+      detection_rr_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_rr_pub_->publish(pub_msg);}
+    } else if (topic_name == "vimba_front_left_center"){
+      detection_flc_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_flc_pub_->publish(pub_msg);}
+    } else if (topic_name == "vimba_front_right_center"){
+      detection_frc_image_publisher_->publish(*(cv_ptr_->toImageMsg()).get() );
+      // if (nmsresults_[i].size()>0){objects_frc_pub_->publish(pub_msg);}
+    } else {
+      RCLCPP_ERROR(this->get_logger(), "No topic name found");
+    }
+
+    // Only publish the bounding box if there is an object
+    if (nmsresults_[i].size()>0){objects_pub_->publish(pub_msg);}
   }
 
   auto stop = now();

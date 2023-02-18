@@ -145,6 +145,21 @@ static void hwc_to_chw(cv::InputArray src, cv::OutputArray dst) {
   cv::hconcat( channels, dst );
 }
 
+/**
+This function takes a vector of input images in OpenCV Mat format and 
+performs several operations to prepare the images for feeding into the 
+YOLOv7 network. The pre-processing steps are as follows:
+1.  Check the size of the input vector of images to ensure it\'s within the required range.
+2.  Iterate over each image in the input vector.
+3.  Compute the scaling factor required to resize the image to the network input dimensions.
+4.  Compute the affine transformation matrix that maps the resized image to the network input dimensions, while maintaining the image center.
+5.  Apply the affine transformation to resize and center the input image.
+6.  Convert the image from BGR to RGB format.
+7.  Normalize the pixel values by dividing them by 255.
+8.  Convert the image from HWC (height, width, channels) to CHW (channels, height, width) format, which is required by the YOLOv7 network.
+9.  Store the preprocessed image in a vector and also push it into the network buffer for inference.
+10. Return the preprocessed images in a vector.
+*/
 std::vector<cv::Mat> Yolov7::preProcess(std::vector<cv::Mat> &cv_img) {
     if(cv_img.size() > mInputDim.d[0] || cv_img.size() <=0) {
         std::cerr<<"error cv_img.size() in "<<__FUNCTION__<<std::endl;
@@ -178,6 +193,8 @@ std::vector<cv::Mat> Yolov7::preProcess(std::vector<cv::Mat> &cv_img) {
     }
     return nchwMats;
 }
+
+
 std::vector<cv::Mat> Yolov7::preProcess4Validate(std::vector<cv::Mat> &cv_img) {
     std::vector<cv::Mat> nchwMats;
     if(cv_img.size() > mInputDim.d[0] || cv_img.size() <=0) {

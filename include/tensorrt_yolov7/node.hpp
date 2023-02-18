@@ -91,6 +91,7 @@ private:
   OnSetParametersCallbackHandle::SharedPtr params_callback_handle_;
 
   void image_callback(const sensor_msgs::msg::Image::SharedPtr msg);
+  void image_inference_publish(const sensor_msgs::msg::Image::SharedPtr msg, std::string topic_name);
 };
 }    // namespace tensorrt_yolov7_ros2
 }  // namespace perception
